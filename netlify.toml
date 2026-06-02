@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# Route the shared-state API to the function (must come before the SPA fallback)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/state"
+  status = 200
+
+# SPA fallback — serve index.html for any other route
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
