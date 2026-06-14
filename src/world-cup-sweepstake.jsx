@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Trophy, Shuffle, RotateCcw, Goal, ChevronRight, Lock, RefreshCw } from "lucide-react";
+import { Trophy, Shuffle, Goal, ChevronRight, Lock, RefreshCw } from "lucide-react";
 import { loadState, saveState, pollState } from "./sharedStore";
 
 // ---- Tournament data: the four FIFA 2026 seeding pots (48 teams) ----
@@ -141,17 +141,6 @@ export default function App() {
     }, 70);
   };
   const pick = (pot) => POTS[pot][Math.floor(Math.random() * POTS[pot].length)];
-
-  const resetAll = () => {
-    if (window.confirm("Reset everything — the draw and all results? This can't be undone.")) {
-      setDraw(null); setResults({});
-    }
-  };
-  const redraw = () => {
-    if (window.confirm("Re-run the draw? Everyone gets new teams and all recorded results are wiped.")) {
-      runDraw();
-    }
-  };
 
   // Pull the latest live results now (also runs automatically every 10 min on the server)
   const syncNow = async () => {
@@ -320,8 +309,6 @@ export default function App() {
               <button className="wc-ghost" onClick={syncNow} disabled={syncing}>
                 <RefreshCw size={15} className={syncing ? "wc-spin-icon" : ""} /> {syncing ? "Syncing…" : "Sync now"}
               </button>
-              <button className="wc-ghost" onClick={redraw}><Shuffle size={15} /> Re-draw</button>
-              <button className="wc-ghost danger" onClick={resetAll}><RotateCcw size={15} /> Reset all</button>
               <span className="wc-saved"><Lock size={12} /> saves automatically</span>
             </div>
             <div className="wc-sync-note">
