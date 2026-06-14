@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Trophy, Shuffle, RotateCcw, Goal, ChevronRight, Lock } from "lucide-react";
+import { Trophy, Shuffle, RotateCcw, Goal, ChevronRight, Lock, RefreshCw } from "lucide-react";
 import { loadState, saveState, pollState } from "./sharedStore";
 
 // ---- Tournament data: the four FIFA 2026 seeding pots (48 teams) ----
@@ -59,6 +59,8 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const [spin, setSpin] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
 
   // Mirror of current state for the poll loop; when we apply a remote update we set
   // applyingRemote so the save-effect doesn't bounce it straight back to the server;
@@ -149,6 +151,22 @@ export default function App() {
     if (window.confirm("Re-run the draw? Everyone gets new teams and all recorded results are wiped.")) {
       runDraw();
     }
+  };
+
+  // Pull the latest live results now (also runs automatically every 10 min on the server)
+  const syncNow = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/sync", { method: "POST" });
+      const r = await res.json();
+      if (r.ok && r.skipped) setSyncMsg("Run the draw first");
+      else if (r.ok) {
+        applyingRemote.current = true;            // adopt server state without echoing it back
+        applyState(await loadState());
+        setSyncMsg(`Updated — ${r.finishedGames} games played so far`);
+      } else setSyncMsg("Sync failed — try again");
+    } catch { setSyncMsg("Sync failed — check your connection"); }
+    setSyncing(false);
   };
 
   const setGame = (team, idx, val) => {
@@ -299,9 +317,16 @@ export default function App() {
               <div><b>Goals</b><span>+1 each (optional toggle) · also the tiebreaker</span></div>
             </div>
             <div className="wc-controls">
+              <button className="wc-ghost" onClick={syncNow} disabled={syncing}>
+                <RefreshCw size={15} className={syncing ? "wc-spin-icon" : ""} /> {syncing ? "Syncing…" : "Sync now"}
+              </button>
               <button className="wc-ghost" onClick={redraw}><Shuffle size={15} /> Re-draw</button>
               <button className="wc-ghost danger" onClick={resetAll}><RotateCcw size={15} /> Reset all</button>
               <span className="wc-saved"><Lock size={12} /> saves automatically</span>
+            </div>
+            <div className="wc-sync-note">
+              <RefreshCw size={11} /> Live results auto-update every 10 min from worldcup26.ir
+              {syncMsg && <span className="wc-sync-msg"> · {syncMsg}</span>}
             </div>
           </section>
         </>
@@ -412,5 +437,10 @@ const css = `
 .wc-ghost:hover{ border-color:var(--lime); }
 .wc-ghost.danger:hover{ border-color:var(--red); color:var(--red); }
 .wc-saved{ margin-left:auto; font-size:11px; color:var(--muted); display:flex; align-items:center; gap:4px; }
+.wc-sync-note{ margin-top:12px; font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.wc-sync-note svg{ color:var(--lime); }
+.wc-sync-msg{ color:var(--lime); }
+.wc-spin-icon{ animation:wc-spin 0.9s linear infinite; }
+@keyframes wc-spin{ to{ transform:rotate(360deg); } }
 .wc-foot{ text-align:center; color:var(--muted); font-size:12px; margin-top:8px; max-width:560px; margin-left:auto; margin-right:auto; }
 `;

@@ -3,10 +3,15 @@
   publish = "dist"
   functions = "netlify/functions"
 
-# Route the shared-state API to the function (must come before the SPA fallback)
+# Route the API endpoints to their functions (must come before the SPA fallback)
 [[redirects]]
-  from = "/api/*"
+  from = "/api/state"
   to = "/.netlify/functions/state"
+  status = 200
+
+[[redirects]]
+  from = "/api/sync"
+  to = "/.netlify/functions/sync"
   status = 200
 
 # SPA fallback — serve index.html for any other route
