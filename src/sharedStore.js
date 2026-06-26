@@ -5,9 +5,11 @@ const API = "/api/state";
 let lastVersion = 0;
 
 // Load the shared state. Returns the saved object, or null if nothing saved yet.
+// THROWS on a backend error so callers can tell "couldn't reach server" apart from
+// "there genuinely is no draw" — critical: the former must NOT trigger a save.
 export async function loadState() {
   const res = await fetch(API);
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`load failed: ${res.status}`);
   const data = await res.json(); // { value, version } | null
   if (!data) return null;
   lastVersion = data.version || 0;

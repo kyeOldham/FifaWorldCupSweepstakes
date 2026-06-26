@@ -68,6 +68,7 @@ export default function App() {
   const stateRef = useRef({ draw, results, countGoals });
   const applyingRemote = useRef(false);
   const lastEdit = useRef(0);
+  const loadOk = useRef(false); // did we successfully read the store? if not, never write to it
   useEffect(() => { stateRef.current = { draw, results, countGoals }; });
 
   const applyState = (s) => {
@@ -80,16 +81,29 @@ export default function App() {
   // Load shared state from the backend
   useEffect(() => {
     (async () => {
-      try { applyState(await loadState()); }
-      catch (e) { /* backend unavailable — start fresh, in-memory only */ }
+      try {
+        const s = await loadState();
+        if (s) applyingRemote.current = true; // don't echo the just-loaded state back
+        applyState(s);
+        loadOk.current = true;
+      } catch (e) {
+        // Backend unreachable — DO NOT save, or we'd risk blanking a draw we couldn't read
+        loadOk.current = false;
+        setSyncMsg("Couldn't reach the server — reload before making changes");
+      }
       setLoaded(true);
     })();
   }, []);
 
-  // Persist on change (skip the echo when the change came from a remote update)
+  // Persist on change. Guards that make data loss impossible:
+  //  - applyingRemote: don't bounce a remote update straight back
+  //  - !loadOk: if we never read the store, never overwrite it
+  //  - !draw: never persist an empty/no-draw state over a real one
   useEffect(() => {
     if (!loaded) return;
     if (applyingRemote.current) { applyingRemote.current = false; return; }
+    if (!loadOk.current) return;
+    if (!draw) return;
     lastEdit.current = Date.now();
     saveState({ draw, results, countGoals }).catch(() => { /* in-memory only */ });
   }, [draw, results, countGoals, loaded]);
@@ -101,6 +115,8 @@ export default function App() {
       // Hold off while the user is actively editing, to avoid clobbering input
       if (Date.now() - lastEdit.current < 2500) return false;
       const cur = stateRef.current;
+      // Never let a missing/empty remote draw wipe a draw we already have
+      if ((!remote || !remote.draw) && cur.draw) return true;
       const same = JSON.stringify(remote) ===
         JSON.stringify({ draw: cur.draw, results: cur.results, countGoals: cur.countGoals });
       if (same) return true; // nothing new to apply, just acknowledge the version
